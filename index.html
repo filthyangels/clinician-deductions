@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>Clinician Deductions — Smart Calculator (ATO 2024–25)</title>
+<style>
+  :root{
+    --bg:#f5f6fb; --card:#ffffff; --ink:#1f2230; --muted:#6b7280;
+    --primary:#6c4df6; --primary-weak:#efeaff; --ring:#cfd4ff;
+    --border:#e7e8f0; --shadow:0 6px 20px rgba(30,27,75,.08);
+    --radius:14px; --sidebar-w:300px; --tick:#22c55e; --pending:#f59e0b;
+  }
+  html,body{height:100%} body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+  .shell{max-width:1200px;margin:28px auto 120px;padding:0 20px;}
+  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .dot{width:34px;height:34px;border-radius:50%;background:var(--primary);box-shadow:inset 0 0 0 6px var(--primary-weak);}
+  .brand h1{font-size:20px;margin:0}
+  .actions{display:flex;gap:10px;flex-wrap:wrap}
+  button{appearance:none;border:0;background:var(--primary);color:#fff;padding:10px 14px;border-radius:999px;cursor:pointer;box-shadow:var(--shadow)}
+  button.ghost{background:#fff;color:var(--primary);border:1px solid var(--ring)}
+  button.danger{background:#fff;color:#9b1c1c;border:1px solid #f2b8b8}
+  button:focus-visible{outline:3px solid var(--ring)}
+  .layout{display:grid;grid-template-columns:var(--sidebar-w) 1fr;gap:16px;align-items:start;}
+  @media (max-width:980px){.layout{grid-template-columns:1fr}}
+  aside.sidebar{background:var(--primary);color:#fff;border-radius:16px;padding:14px;box-shadow:var(--shadow);position:sticky;top:18px;}
+  .sb-title{margin:0 0 10px;font-size:14px;letter-spacing:.08em;text-transform:uppercase;opacity:.9}
+  .sb-block{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:10px;margin-bottom:12px}
+  .sb-block .card{background:#fff;color:var(--ink);border:1px solid var(--border);box-shadow:var(--shadow)}
+  .sections-list{list-style:none;margin:6px 0 0;padding:0}
+  .sections-list li{margin:4px 0}
+  .sections-list a{color:#fff;text-decoration:none;padding:6px 8px;display:flex;align-items:center;gap:10px;border-radius:8px}
+  .sections-list a:hover,.sections-list a:focus{background:rgba(255,255,255,.14);outline:none}
+  /* ✅ tick never squashed */
+  .sec-tick{flex:0 0 16px;width:16px;height:16px;border-radius:50%;
+    border:2px solid var(--tick);display:none;align-items:center;justify-content:center;
+    background:var(--tick);font-size:10px;line-height:1}
+  .sec-tick.on{display:inline-flex}
+  .sec-tick span{transform:translateY(-1px)}
+  .grid{display:flex;flex-direction:column;gap:16px}
+
+  /* Pending (ticked but $0) tick bubble */
+  .sec-tick.pending{display:inline-flex;background:var(--pending);border-color:var(--pending)}
+  /* Collapse cards when not ticked */
+  .card.collapsed > :not(.header){display:none}
+  .card.collapsed{padding-bottom:12px}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;}
+  .card .header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
+  .card.disabled{opacity:.55;filter:saturate(.7);pointer-events:none;}
+  .hfill{flex:1}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:var(--primary-weak);color:var(--primary);padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px;}
+  .row{display:flex;flex-wrap:wrap;gap:12px}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:160px;flex:1}
+  label{font-size:13px;color:var(--muted)}
+  input[type="number"],input[type="text"],input[type="date"],select{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#fff;color:var(--ink)}
+  input:focus{outline:3px solid var(--ring);border-color:transparent}
+  .note{padding:10px 12px;border-radius:10px;border:1px dashed var(--border);background:#fafbff;color:var(--muted)}
+  .warn{border-color:#ffe2a8;background:#fff8e6;color:#7a5d00}
+  .total{font-size:18px;font-weight:700}
+  .kpi{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 0}
+  .pill{background:#fff;border:1px solid var(--border);border-radius:999px;padding:8px 12px;box-shadow:var(--shadow);font-weight:600}
+  .side-by{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:740px){.side-by{grid-template-columns:1fr}}
+  .divider{height:1px;background:var(--border);margin:8px 0 2px}
+  .table{width:100%;border-collapse:collapse}
+  .table th,.table td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+  .table th{font-size:13px;color:var(--muted)}
+  .right{text-align:right} .small{font-size:12px;color:var(--muted)}
+  .asset-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+  .list{margin:0;padding-left:18px} .list li{margin:4px 0}
+  .vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  pre.lines{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#fafbff;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;margin:8px 0 0}
+  a.badgelink{color:inherit;text-decoration:none}
+
+  .fyctl{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);padding:6px 10px;border-radius:999px;box-shadow:var(--shadow);}
+  .fyctl input[type=number]{border:1px solid var(--border);border-radius:8px;padding:6px 8px;outline:none}
+  .fyctl input[type=number]:focus{border-color:var(--ring);box-shadow:0 0 0 3px var(--ring)}
+
+  /* Overview dashboard */
+  #card-overview{background:var(--primary); color:#fff; border:0; padding:18px}
+  #card-overview .header strong{letter-spacing:.08em;text-transform:uppercase;font-weight:800}
+  #card-overview .ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:980px){#card-overview .ov-grid{grid-template-columns:1fr}}
+  #card-overview .ov-panel{background:#fff;color:var(--ink);border:1px solid var(--ring);border-radius:14px;padding:14px;box-shadow:var(--shadow)}
+  #card-overview .ov-panel h3{margin:0 0 8px 0;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--primary)}
+  #card-overview pre.lines{color:var(--ink);background:transparent}
+  #card-overview .pill{background:var(--primary);color:#fff}
+
+
+  .header .ex{opacity:.9;font-style:italic}
+
+  #card-intro .body{padding:12px 14px}
+
+  /* Modal for self-tests */
+  .modal.hidden{display:none}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:1000}
+  .modal-card{background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);max-width:800px;width:100%}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .modal-body{padding:12px 16px;max-height:60vh;overflow:auto}
+  #card-tests{display:none}
+
+
+  /* Intro dismiss button */
+  #card-intro{position:relative}
+  #intro-close.intro-dismiss{position:absolute;top:10px;right:10px;border:0;background:transparent;cursor:pointer;font-size:16px;line-height:1;opacity:.6}
+  #intro-close.intro-dismiss:hover{opacity:1}
+  #card-intro.hidden{display:none}
+
+
+  /* Intro dismiss button (higher contrast) */
+  #intro-close.intro-dismiss{
+    position:absolute;top:10px;right:10px;
+    border:1px solid var(--ring);
+    background: rgba(97,51,255,.08);
+    color: var(--primary);
+    cursor:pointer;font-size:16px;line-height:1;font-weight:700;
+    width:28px;height:28px;border-radius:9999px;
+    display:inline-flex;align-items:center;justify-content:center;
+    box-shadow: var(--shadow); opacity:.9
+  }
+  #intro-close.intro-dismiss:hover{opacity:1; background: rgba(97,51,255,.16); transform: translateY(-1px)}
+  #intro-close.intro-dismiss:focus{outline: none; box-shadow: 0 0 0 3px var(--ring)}
+
+
+  /* Visual grouping wrappers (no logic impact) */
+  .group-card{border:2px solid var(--border);border-radius:20px;padding:12px;background:var(--card);box-shadow:var(--shadow)}
+  .group-card + .group-card{margin-top:16px}
+  .group-header{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--primary);margin:4px 6px 10px}
+  .group-body{display:flex;flex-direction:column;gap:16px}
+
+  /* Pseudo category header for education guidance */
+  .card.pseudo .header{padding-left:30px}
+  .edu-note-short{display:none}
+  @media (max-width: 820px){ .edu-note-long{display:none} .edu-note-short{display:inline} }
+
+
+  /* Summary text should use normal UI font, not monospace */
+  #ticked-summary{
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    white-space: pre-wrap; /* keep line breaks but allow wrapping */
+  }
+
+
+  /* Ensure badges have consistent appearance (no underline, correct color) */
+  a.badge{ text-decoration: none !important; color: var(--ink) !important; }
+  a.badge:visited{ color: var(--ink) !important; }
+
+
+  /* === Print summary & checklist === */
+  #print-area{display:none}
+  @media print{
+    :root{--ink:#111;--muted:#555}
+    body{background:#fff}
+    header, .sidebar, .nav, #app, .group-card, #modal-tests{display:none !important}
+    #print-area{display:block !important; padding:20mm 15mm; font-size:12pt; color:var(--ink)}
+    #print-area h1{font-size:20pt;margin:0 0 4mm}
+    #print-area h2{font-size:14pt;margin:10mm 0 3mm}
+    #print-area .meta{font-size:10pt;color:var(--muted);margin-bottom:8mm}
+    #print-area table{width:100%; border-collapse:collapse; margin:0 0 6mm}
+    #print-area th, #print-area td{border:1px solid #e6e6ef; padding:5pt 7pt; vertical-align:top}
+    #print-area th{background:#f6f5ff; text-align:left}
+    #print-area tfoot td{font-weight:700}
+    #print-area .amount{text-align:right; white-space:nowrap}
+    #print-area .checkbox{width:14mm; text-align:center}
+    #print-area .box{display:inline-block; width:11pt;height:11pt;border:1.5pt solid #888;border-radius:2pt}
+    @page{size:A4;margin:10mm}
+  }
+
+
+  /* === Themed Print (A4) === */
+  @media print{
+    *{-webkit-print-color-adjust:exact; print-color-adjust:exact}
+    :root{--ink:#0f172a;--muted:#475569;--p: var(--primary, #6b4eff);--pBg:#efeafe}
+    @page{size:A4;margin:12mm}
+    body{background:#fff;color:var(--ink);font-size:10pt}
+    header, .sidebar, .nav, #app, .group-card, #modal-tests{display:none !important}
+    #print-area{display:block !important; padding:0 0 20mm 0}
+    #print-area .mast{position:relative;
+      margin:0 0 6mm 0; padding:6mm 15mm 6mm 15mm;
+      background: linear-gradient(180deg, rgba(105,79,255,.12), rgba(105,79,255,.06));
+      border-bottom: 3pt solid var(--p);
+    }
+    #print-area .mast h1{position:relative;z-index:1;margin:0;font-size:18pt;letter-spacing:.2px;padding-right:80mm}
+    #print-area .meta{font-size:10pt;color:var(--muted)}
+    #print-area .total-pill{z-index:0;
+      position:absolute; right:15mm; top:6mm;
+      background: var(--p); color:#fff; font-weight:700; font-size:12pt;
+      padding:6pt 10pt; border-radius:999px; box-shadow:0 6pt 20pt rgba(105,79,255,.25)
+    }
+    #print-area .section{padding:8mm 15mm 0 15mm}
+    #print-area h2{font-size:12pt;margin:6mm 0 3mm}
+    #print-area table{width:100%; border-collapse:separate; border-spacing:0; margin:0 0 6mm; page-break-inside:auto}
+    #print-area th{background:var(--pBg); color:var(--ink); font-weight:700; border:1pt solid #e7e6ff; padding:6pt 8pt; text-align:left}
+    #print-area td{border:1pt solid #eef; padding:6pt 8pt; vertical-align:top}
+    #print-area thead th:first-child{border-top-left-radius:10pt}
+    #print-area thead th:last-child{border-top-right-radius:10pt}
+    #print-area tbody tr:last-child td:first-child{border-bottom-left-radius:10pt}
+    #print-area tbody tr:last-child td:last-child{border-bottom-right-radius:10pt}
+    #print-area .amount{text-align:right;white-space:nowrap}
+    #print-area tbody tr:nth-child(odd) td{background:#fafbff}
+    #print-area tfoot td{font-weight:700;background:#f6f5ff}
+    #print-area .checkbox{width:16mm;text-align:center}
+    #print-area .box{display:inline-block;width:11pt;height:11pt;border:1.6pt solid #8b88ff;border-radius:2pt}
+    #print-footer{
+      position:fixed; bottom:0; left:0; right:0;
+      display:flex; justify-content:space-between; align-items:center;
+      padding:5mm 15mm; font-size:9pt; color:var(--muted);
+      border-top:1pt solid #e9e8ff;
+    }
+    #print-footer .pages::after{content: counter(page) " of " counter(pages);}
+  }
+
+
+  #app{padding-bottom:60px}
+
+  /* Remove native number spinners so they don't cover the value (Chrome/Safari/Edge/Firefox) */
+  #app input[type=number]::-webkit-outer-spin-button,
+  #app input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  #app input[type=number]{ -moz-appearance:textfield; appearance:textfield; padding-right:18px; }
+
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="top">
+<div class="brand"><div aria-hidden="true" class="dot"></div><h1>Clinician Deductions — Smart Calculator</h1></div>
+<div aria-live="polite" class="fyctl" title="Select financial year end (30 Jun).">
+<label class="small" for="fy-end-year" style="margin-right:6px">Tax year</label>
+<input id="fy-end-year" max="2100" min="2010" step="1" style="width:86px" type="number" value="2025"/>
+<span class="small" id="fy-range" style="margin-left:8px; opacity:.8">1 Jul 2024 – 30 Jun 2025</span>
+</div>
+<div class="actions">
+<button class="danger" id="btn-reset">Reset</button>
+<button class="ghost" id="btn-test">Run self-tests</button>
+      <button id="btn-export-pdf" class="btn" type="button">Export PDF</button>
+</div>
+</header>
+<div class="layout">
+<aside class="sidebar">
+<h2 class="sb-title">Sections</h2>
+<div class="sb-block"><ul class="sections-list" id="sections-list"></ul></div>
+</aside>
+<main id="main"><div class="grid" id="app">
+<section class="card" id="card-overview">
+<div class="header"><strong>Summary &amp; Evidence</strong></div>
+<div class="ov-grid">
+<div class="ov-panel">
+<h3>Summary</h3>
+<pre class="lines small" id="ticked-summary">No categories ticked yet.</pre>
+<div class="kpi"><div class="pill">Total deductions: $<span id="out-total">0.00</span></div></div>
+</div>
+<div class="ov-panel">
+<h3>Evidence required</h3>
+<ul class="list small" id="evidence-list"></ul>
+</div>
+</div>
+</section>
+<section class="card" id="card-intro">
+<div class="header"><strong>Introduction</strong>
+<button aria-label="Close introduction" class="intro-dismiss" id="intro-close" type="button">×</button>
+</div>
+<div class="body">
+<p><strong>Welcome!</strong> This calculator helps junior doctors and nurses (PAYG, Australia) estimate <em>work‑related deductions</em> using current ATO guidance.</p>
+<p><strong>Objective:</strong> Give you a clean, auditable checklist of what you can claim and what evidence to keep—so lodging your return (or talking to your tax agent) is faster and safer.</p>
+<ol>
+<li><strong>Check the tax year</strong> at the top—update the “Tax year” end (30 Jun) if needed.</li>
+<li><strong>Tick applicable categories</strong> on the right. Each card expands when ticked.</li>
+<li><strong>Prepare the evidence</strong> listed in the “Evidence required” tile. The list updates live as you add items.</li>
+</ol>
+<p class="small" style="opacity:.8">Tip: The sidebar shows an <span style="color:#f59e0b">orange</span> dot when a category is ticked but incomplete, and turns <span style="color:#22c55e">green</span> when it contributes a non‑zero deduction.</p>
+</div>
+</section><section class="group-card" id="group-work"><div class="group-header"><strong>Work-related expenses</strong></div><div class="group-body"><section class="card collapsed" id="card-ahpra"><div class="header">
+<input id="chk-ahpra" type="checkbox"/>
+<div class="hfill"><strong>Registration (AHPRA/NMBA)</strong><div class="small">Annual registration fee (doctors &amp; nurses).</div><div class="small ex">Example: AHPRA general registration fee receipt.</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/memberships-accreditations-fees-and-commissions/professional-memberships-and-accreditations" rel="noopener" target="_blank">ATO: Professional fees</a>
+</div><div class="row">
+<div class="field"><label for="ahpra-cost">Cost (AUD)</label><input id="ahpra-cost" min="0" step="0.01" type="number"/></div>
+</div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-ahpra">0.00</span></div></div></section><section class="card collapsed" id="card-mdo"><div class="header">
+<input id="chk-mdo" type="checkbox"/>
+<div class="hfill"><strong>Professional Indemnity (MDO)</strong><div class="small ex">Example: Avant/MDA National indemnity premium (policy year).</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/law/view/document?DocNum=0215000008&amp;FullDocument=true" rel="noopener" target="_blank">ATO: Other WRE</a>
+</div><div class="row">
+<div class="field"><label for="mdo-cost">Cost (AUD)</label><input id="mdo-cost" min="0" step="0.01" type="number"/></div>
+</div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-mdo">0.00</span></div></div></section><section class="card collapsed" id="card-union"><div class="header">
+<input id="chk-union" type="checkbox"/>
+<div class="hfill"><strong>Union / Association fees</strong><div class="small ex">Example: AMA/VMS or ANMF union membership fee.</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/memberships-accreditations-fees-and-commissions/union-and-professional-fees" rel="noopener" target="_blank">ATO: Union &amp; prof. fees</a>
+</div><div class="row">
+<div class="field"><label for="union-cost">Cost (AUD)</label><input id="union-cost" min="0" step="0.01" type="number"/></div>
+</div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-union">0.00</span></div></div></section><section aria-live="polite" class="card collapsed" id="card-pi"><div class="header">
+<input id="chk-phone_internet" type="checkbox"/>
+<div class="hfill"><strong>Phone &amp; Internet</strong><div class="small">Work use only; keep a 4-week diary for %.</div><div class="small ex">Example: Phone $80/mo @ 40% work use; NBN $70/mo @ 30% work use.</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/work-related-deductions/tools-computers-and-items-you-use-for-work/home-phone-and-internet-expenses" rel="noopener" target="_blank">ATO: Phone &amp; internet</a>
+</div>
+<div class="side-by">
+<div class="card" style="padding:12px">
+<div class="header" style="margin:0 0 6px 0"><strong>Phone</strong><span class="small" style="margin-left:8px">(annual plan)</span></div>
+<div class="row">
+<div class="field"><label for="phone-annual">Annual plan cost</label><input id="phone-annual" min="0" step="0.01" type="number"/></div>
+<div class="field"><label for="phone-pct">Work use %</label><input id="phone-pct" max="100" min="0" step="1" type="number"/></div>
+<div class="field"><label> </label><div class="total">Phone: $<span id="out-phone">0.00</span></div></div>
+</div>
+</div>
+<div class="card" style="padding:12px">
+<div class="header" style="margin:0 0 6px 0"><strong>Internet</strong><span class="small" style="margin-left:8px">(monthly plan)</span></div>
+<div class="row">
+<div class="field"><label for="internet-monthly">Monthly cost</label><input id="internet-monthly" min="0" step="0.01" type="number"/></div>
+<div class="field"><label for="internet-months">Months</label><input id="internet-months" max="12" min="0" step="1" type="number" value="12"/></div>
+<div class="field"><label for="internet-pct">Work use %</label><input id="internet-pct" max="100" min="0" step="1" type="number"/></div>
+<div class="field"><label> </label><div class="total">Internet: $<span id="out-internet">0.00</span></div></div>
+</div>
+</div>
+</div>
+<div class="kpi"><div class="pill">Total Phone &amp; Internet: $<span id="out-pi-total">0.00</span></div></div>
+<div class="note small" id="dl-pi-note"></div>
+</section><section class="card collapsed" id="card-home"><div class="header">
+<input id="chk-home" type="checkbox"/>
+<div class="hfill"><strong>Work from home</strong><div class="small">Choose Fixed-rate (70c/hr) or Actual costs.</div><div class="small ex">Example: 2 hrs per weeknight using fixed-rate 70¢/hr (or actuals for power + internet).</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/working-from-home-expenses" rel="noopener" target="_blank">ATO: Home office</a>
+</div>
+<div class="side-by">
+<div class="card" style="padding:12px">
+<div class="header" style="margin:0 0 6px 0">
+<input checked="" id="home-choice-fixed" name="home-choice" type="radio"/>
+<strong for="home-choice-fixed">Fixed-rate (70¢/hr)</strong>
+</div>
+<div class="row">
+<div class="field"><label for="home-hours">WFH hours</label><input id="home-hours" min="0" step="0.5" type="number"/></div>
+<div class="field"><label> </label><div class="total">WFH fixed: $<span id="out-home-fixed">0.00</span></div></div>
+</div>
+<div class="note small" id="dl-home-fixed-note">When Fixed-rate is selected, Phone &amp; Internet are disabled and not added separately.</div>
+</div>
+<div class="card" style="padding:12px">
+<div class="header" style="margin:0 0 6px 0">
+<input id="home-choice-actuals" name="home-choice" type="radio"/>
+<strong for="home-choice-actuals">Actual costs</strong>
+</div>
+<div class="row">
+<div class="field"><label for="home-actuals-power">Power/cleaning (work portion) — AUD</label><input id="home-actuals-power" min="0" step="0.01" type="number"/></div>
+<div class="field"><label for="home-actuals-intph">Internet/Phone (manual if PI card not ticked) — AUD</label><input id="home-actuals-intph" min="0" step="0.01" type="number"/></div>
+<div class="field"><label> </label><div class="total">Home actuals: $<span id="out-home-actuals">0.00</span></div></div>
+</div>
+<div class="note small" id="dl-home-actuals-home_ex">If the Phone &amp; Internet card is ticked, its total is included here and the manual field is ignored.</div>
+</div>
+</div>
+<div class="kpi"><div class="pill">Home office: $<span id="out-home-total">0.00</span></div></div></section><section class="card collapsed" id="card-laundry"><div class="header">
+<input id="chk-laundry" type="checkbox"/>
+<div class="hfill"><strong>Uniform / Laundry / PPE</strong><div class="small">$1 per work-only load; $0.50 per mixed load.</div><div class="small ex">Example: Washing scrubs 2 loads/week; PPE laundry (work-only &amp; mixed rates apply).</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/work-related-deductions/clothes-and-items-you-wear-at-work/clothing-laundry-and-dry-cleaning-expenses" rel="noopener" target="_blank">ATO: Laundry</a>
+</div><div class="row">
+<div class="field"><label for="laundry-workonly">Work-only loads</label><input id="laundry-workonly" min="0" step="1" type="number"/></div>
+<div class="field"><label for="laundry-mixed">Mixed loads</label><input id="laundry-mixed" min="0" step="1" type="number"/></div>
+</div><div class="note small">Receipts not required ≤ $150 (but you need a reasonable basis).</div>
+<div class="kpi"><div class="pill">Laundry: $<span id="out-laundry">0.00</span></div></div></section><section class="card collapsed" id="card-assets"><div class="header">
+<input id="chk-assets" type="checkbox"/>
+<div class="hfill"><strong>Tools &amp; Equipment (incl. laptop, stethoscope)</strong><div class="small">≤ $300 immediate; &gt; $300 depreciated.</div><div class="small ex">Example: Stethoscope $300 (100% work); Laptop $1,500 (70% work, depreciated).</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/work-related-deductions/tools-computers-and-items-you-use-for-work/tools-and-equipment-to-perform-your-work" rel="noopener" target="_blank">ATO: Assets</a>
+</div>
+<div class="row"><div class="field"><label> </label><button class="ghost" id="btn-add-asset" type="button">+ Add asset</button></div></div>
+<div class="divider"></div>
+<div class="row"><table class="table" id="assets-rows"><thead>
+<tr><th>Description</th><th class="right">Cost</th><th class="right">Work %</th><th class="right">Life (yrs)</th><th>Method</th><th>Purchase date</th><th class="right">Deduction</th><th class="right">Action</th></tr>
+</thead><tbody id="assets-tbody"></tbody></table></div>
+<div class="kpi"><div class="pill">Assets: $<span id="out-assets">0.00</span></div></div></section><section class="card collapsed" id="card-parking"><div class="header">
+<input id="chk-parking" type="checkbox"/>
+<div class="hfill"><strong>Parking / Tolls (work-related only)</strong><div class="small">Exclude home↔work commuting.</div><div class="small ex">Example: Hospital parking while on-call; tolls between sites (no home↔work).</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/cars-transport-and-travel/motor-vehicle-and-car-expenses/expenses-for-parking-tolls-accidents-licence-and-fines" rel="noopener" target="_blank">ATO: Transport</a>
+</div><div class="row">
+<div class="field"><label for="parking-cost">Cost (AUD)</label><input id="parking-cost" min="0" step="0.01" type="number"/></div>
+</div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-parking">0.00</span></div></div></section><section class="card collapsed" id="card-car"><div class="header">
+<input id="chk-car" type="checkbox"/>
+<div class="hfill"><strong>Travel — Car (between workplaces, home visits)</strong>
+<div class="small">Choose cents-per-km (max 5,000 work km) or logbook. <em>No home↔work commuting.</em></div><div class="small ex">Example: 1,200 km between Hospital A↔B @ $0.85/km; or logbook 25% of car expenses.</div>
+</div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/cars-transport-and-travel/motor-vehicle-and-car-expenses/expenses-for-a-car-you-own-or-lease" rel="noopener" target="_blank">ATO: Car expenses</a>
+</div>
+<div class="side-by">
+<div class="card" style="padding:12px">
+<div class="header" style="margin:0 0 6px 0"><input checked="" id="car-cpk" name="car-method" type="radio"/><strong for="car-cpk">Cents-per-km</strong></div>
+<div class="row">
+<div class="field"><label for="car-km">Work kilometres</label><input id="car-km" min="0" step="1" type="number"/></div>
+<div class="field"><label for="car-rate">Rate ($/km)</label><input id="car-rate" min="0" step="0.01" type="number" value="0.85"/></div>
+<div class="field"><label> </label><div class="total">Cents-per-km: $<span id="out-car-cpk">0.00</span></div></div>
+</div>
+</div>
+<div class="card" style="padding:12px">
+<div class="header" style="margin:0 0 6px 0"><input id="car-logbook" name="car-method" type="radio"/><strong for="car-logbook">Logbook method</strong></div>
+<div class="row">
+<div class="field"><label for="car-exp">Total car expenses (annual)</label><input id="car-exp" min="0" step="0.01" type="number"/></div>
+<div class="field"><label for="car-pct">Business use % (logbook)</label><input id="car-pct" max="100" min="0" step="1" type="number"/></div>
+<div class="field"><label> </label><div class="total">Logbook: $<span id="out-car-log">0.00</span></div></div>
+</div>
+</div>
+</div>
+<div class="kpi"><div class="pill">Car travel: $<span id="out-car-total">0.00</span></div></div></section><section class="card collapsed" id="card-travel-noncar"><div class="header">
+<input id="chk-travel-noncar" type="checkbox"/>
+<div class="hfill"><strong>Travel — Transport (non-car) between workplaces</strong><div class="small">Public transport, rideshare, taxi between sites on the same day.</div><div class="small ex">Example: Uber/Taxi/Public transport between sites on the same day.</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/cars-transport-and-travel/taxi-ride-share-and-public-transport-expenses" rel="noopener" target="_blank">ATO: Transport</a>
+</div>
+<div class="row"><div class="field"><label> </label><button class="ghost" id="btn-add-tnc" type="button">+ Add item</button></div></div>
+<div class="divider"></div>
+<div class="row"><table class="table"><thead><tr><th>Description</th><th class="right">Cost</th><th class="right">Action</th></tr></thead><tbody id="tnc-tbody"></tbody></table></div>
+<div class="kpi"><div class="pill">Non-car transport: $<span id="out-tnc">0.00</span></div></div></section><section class="card collapsed" id="card-travel-overnight"><div class="header">
+<input id="chk-travel-overnight" type="checkbox"/>
+<div class="hfill"><strong>Travel — Overnight (accom &amp; meals)</strong><div class="small">Only when required to sleep away from home for work.</div><div class="small ex">Example: 2-night interstate conference—hotel + meals (travel diary if 6+ nights).</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/work-related-deductions/cars-transport-and-travel/overnight-travel-expenses-and-allowances" rel="noopener" target="_blank">ATO: Travel expenses</a>
+</div>
+<div class="row"><div class="field"><label> </label><button class="ghost" id="btn-add-ov" type="button">+ Add item</button></div></div>
+<div class="divider"></div>
+<div class="row"><table class="table"><thead><tr><th>Description</th><th class="right">Cost</th><th class="right">Action</th></tr></thead><tbody id="ov-tbody"></tbody></table></div>
+<div class="note small">If away 6+ nights, keep a travel diary. Private components aren’t deductible.</div>
+<div class="kpi"><div class="pill">Overnight travel: $<span id="out-ov">0.00</span></div></div></section><section class="card collapsed" id="card-overtime"><div class="header">
+<input id="chk-overtime" type="checkbox"/>
+<div class="hfill"><strong>Overtime meal (allowance received)</strong><div class="small">Deduct only if an allowance was paid and you’ll include it in income.</div><div class="small ex">Example: Meal bought when paid an overtime meal allowance for a 10+ hr shift.</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/meals-entertainment-and-functions/overtime-meal-expenses" rel="noopener" target="_blank">ATO: Allowances</a>
+</div><div class="row">
+<div class="field"><label><input id="ot-declare" type="checkbox"/> I received an overtime meal allowance and will include it in my return</label></div>
+<div class="field"><label for="ot-spend">Amount spent on overtime meals (AUD)</label><input id="ot-spend" min="0" step="0.01" type="number"/></div>
+</div>
+<div class="kpi"><div class="pill">Overtime meals: $<span id="out-ot">0.00</span></div></div></section><section class="card collapsed" id="card-vax"><div class="header">
+<input id="chk-vax" type="checkbox"/>
+<div class="hfill"><strong>Vaccinations / Medical checks (required by employer)</strong><div class="small ex">Example: Hep B booster/fit testing required by employer.</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/work-related-deductions/personal-grooming-health-and-fitness/medical-assessments-and-vaccinations" rel="noopener" target="_blank">ATO: Other WRE</a>
+</div>
+<div class="row"><div class="field"><label> </label><button class="ghost" id="btn-add-vax" type="button">+ Add item</button></div></div>
+<div class="divider"></div>
+<div class="row"><table class="table"><thead><tr><th>Description</th><th class="right">Cost</th><th class="right">Action</th></tr></thead><tbody id="vax-tbody"></tbody></table></div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-vax">0.00</span></div></div></section><section class="card collapsed" id="card-licence"><div class="header">
+<input id="chk-licence" type="checkbox"/>
+<div class="hfill"><strong>Licences / Certifications</strong><div class="small ex">Example: ALS/ACLS certificate renewal; radiation safety permit.</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/memberships-accreditations-fees-and-commissions/professional-memberships-and-accreditations" rel="noopener" target="_blank">ATO: Other WRE</a>
+</div>
+<div class="row"><div class="field"><label> </label><button class="ghost" id="btn-add-lic" type="button">+ Add item</button></div></div>
+<div class="divider"></div>
+<div class="row"><table class="table"><thead><tr><th>Description</th><th class="right">Cost</th><th class="right">Action</th></tr></thead><tbody id="lic-tbody"></tbody></table></div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-licence">0.00</span></div></div></section><section class="card collapsed" id="card-software"><div class="header">
+<input id="chk-software" type="checkbox"/>
+<div class="hfill"><strong>Software / Apps</strong><div class="small ex">Example: UpToDate app, Notion/1Password used for work (proportion work use).</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/work-related-deductions/tools-computers-and-items-you-use-for-work/computers-laptops-and-software" rel="noopener" target="_blank">ATO: Subscriptions</a>
+</div>
+<div class="row"><div class="field"><label> </label><button class="ghost" id="btn-add-soft" type="button">+ Add item</button></div></div>
+<div class="divider"></div>
+<div class="row"><table class="table"><thead><tr><th>Description</th><th class="right">Cost</th><th class="right">Action</th></tr></thead><tbody id="soft-tbody"></tbody></table></div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-software">0.00</span></div></div></section><section class="card collapsed" id="card-stationery"><div class="header">
+<input id="chk-stationery" type="checkbox"/>
+<div class="hfill"><strong>Stationery</strong><div class="small ex">Example: Pens/highlighters, pocket notebook for ward rounds.</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/work-related-deductions/tools-computers-and-items-you-use-for-work/stationery-and-office-supplies" rel="noopener" target="_blank">ATO: Other WRE</a>
+</div>
+<div class="row"><div class="field"><label> </label><button class="ghost" id="btn-add-stat" type="button">+ Add item</button></div></div>
+<div class="divider"></div>
+<div class="row"><table class="table"><thead><tr><th>Description</th><th class="right">Cost</th><th class="right">Action</th></tr></thead><tbody id="stat-tbody"></tbody></table></div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-stationery">0.00</span></div></div></section></div></section><section class="group-card" id="group-edu"><div class="group-header"><strong>Education-related expenses</strong></div><div class="group-body">
+
+        <section class="card collapsed pseudo" id="card-edu-note">
+          <div class="header">
+            <div class="hfill">
+              <strong><span class="edu-note-long">Education related Car/Transport, Accommodation &amp; Meals, Study from home</span><span class="edu-note-short">Education-related: Transport, Accommodation, Study from home</span></strong>
+              <div class="small">Some self‑education expenses use shared categories as work related expenses. Enter them in those cards instead.</div>
+            </div>
+            <a class="badge" target="_blank" rel="noopener" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/education-training-and-seminars/self-education-expenses#car-and-other-transport-expenses">ATO: Self‑education (travel & WFH)</a>
+
+          </div>
+        </section>
+<section class="card collapsed" id="card-cpd"><div class="header">
+<input id="chk-cpd" type="checkbox"/>
+<div class="hfill"><strong>CPD / Conferences / Exams</strong><div class="small ex">Example: ACLS/ALS course, exam fees, registration for conference (no HELP/HECS).</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/education-training-and-seminars/self-education-expenses" rel="noopener" target="_blank">ATO: Education</a>
+</div><div class="row">
+<div class="field"><label for="cpd-cost">Fees paid (AUD)</label><input id="cpd-cost" min="0" step="0.01" type="number"/></div>
+</div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-cpd">0.00</span></div></div></section><section class="card collapsed" id="card-books"><div class="header">
+<input id="chk-books" type="checkbox"/>
+<div class="hfill"><strong>Textbooks / Journals / Subscriptions</strong><div class="small ex">Example: UpToDate / BMJ / NEJM subscription; orthopaedic textbook.</div></div>
+<a class="badge badgelink" href="https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/deductions-you-can-claim/tools-computers-and-items-you-use-for-work/books-periodicals-and-digital-information" rel="noopener" target="_blank">ATO: Subscriptions</a>
+</div><div class="row">
+<div class="field"><label for="books-cost">Cost (AUD)</label><input id="books-cost" min="0" step="0.01" type="number"/></div>
+</div>
+<div class="kpi"><div class="pill">Deduction: $<span id="out-books">0.00</span></div></div></section></div></section>
+<!-- Registration -->
+
+<!-- Indemnity -->
+
+<!-- Union -->
+
+<!-- Phone & Internet -->
+
+<!-- Home office -->
+
+<!-- Books -->
+
+<!-- CPD -->
+
+<!-- Laundry -->
+
+<!-- Tools & Equipment -->
+
+<!-- Parking/Tolls -->
+
+<!-- Car travel -->
+
+<!-- Non-car transport -->
+
+<!-- Overnight travel -->
+
+<!-- Overtime meal -->
+
+<!-- Multi-item groups -->
+
+
+
+
+<!-- Self-tests -->
+<section class="card" id="card-tests"><div class="header"><strong>Self-tests</strong><span class="small">(debug only; run anytime)</span></div>
+<pre class="small" id="test-output" style="white-space:pre-wrap;margin:0"></pre>
+</section>
+</div></main>
+</div>
+</div>
+<script>
+/* ---------- tiny helpers ---------- */
+function el(tag, attrs = {}, children = []) {
+  if (!Array.isArray(children)) children = (children==null)?[]:[children];
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs||{})){
+    if (v==null) continue;
+    if (k==='class') e.className=v;
+    else if (k==='html') e.innerHTML=v;
+    else e.setAttribute(k,v);
+  }
+  children.forEach(c=>{
+    if (c==null) return;
+    if (typeof c==='string' || typeof c==='number') e.appendChild(document.createTextNode(String(c)));
+    else if (c instanceof Node) e.appendChild(c);
+  });
+  return e;
+}
+const toNum=v=>{const n=Number(v);return isFinite(n)?n:0}
+const fmt=v=>toNum(v).toFixed(2)
+
+/* ---------- PI ---------- */
+function calcPhoneRaw(){
+  const annual=toNum(document.getElementById('phone-annual').value);
+  const pct=Math.min(100,Math.max(0,toNum(document.getElementById('phone-pct').value)));
+  return annual*(pct/100);
+}
+function calcInternetRaw(){
+  const m=toNum(document.getElementById('internet-monthly').value);
+  const months=Math.min(12,Math.max(0,toNum(document.getElementById('internet-months').value||0)));
+  const pct=Math.min(100,Math.max(0,toNum(document.getElementById('internet-pct').value)));
+  return m*months*(pct/100);
+}
+function updatePhoneInternetUI(){
+  const phone=calcPhoneRaw(), internet=calcInternetRaw();
+  document.getElementById('out-phone').textContent=fmt(phone);
+  document.getElementById('out-internet').textContent=fmt(internet);
+  const total=(document.getElementById('chk-phone_internet').checked)?(phone+internet):0;
+  document.getElementById('out-pi-total').textContent=fmt(total);
+  return {phone,internet,total};
+}
+
+/* ---------- Home office ---------- */
+function calcHomeFixed(){
+  const active=document.getElementById('chk-home').checked && document.getElementById('home-choice-fixed').checked;
+  const hrs=active?toNum(document.getElementById('home-hours').value):0;
+  const val=active?hrs*0.70:0;
+  document.getElementById('out-home-fixed').textContent=fmt(val);
+  return val;
+}
+function calcHomeActuals(includePIFromCategory){
+  const active=document.getElementById('chk-home').checked && document.getElementById('home-choice-actuals').checked;
+  let power=active?toNum(document.getElementById('home-actuals-power').value):0;
+  let manualIntPh=active?toNum(document.getElementById('home-actuals-intph').value):0;
+  let piInclude=0;
+  const piChecked=document.getElementById('chk-phone_internet').checked;
+  const piNote=document.getElementById('dl-home-actuals-home_ex');
+  if (active && piChecked && includePIFromCategory){
+    const {total}=updatePhoneInternetUI();
+    piInclude=total; manualIntPh=0;
+    document.getElementById('home-actuals-intph').setAttribute('disabled','disabled');
+    if (piNote){piNote.classList.add('warn');piNote.textContent='Phone & Internet is included automatically from the PI card.';}
+  }else{
+    document.getElementById('home-actuals-intph').removeAttribute('disabled');
+    if (piNote){piNote.classList.remove('warn');piNote.textContent='If the Phone & Internet card is ticked, its total is included here and the manual field is ignored.';}
+  }
+  const val=power+manualIntPh+piInclude;
+  document.getElementById('out-home-actuals').textContent=fmt(val);
+  return val;
+}
+function setPhoneInternetGrey(disabled){
+  const card=document.getElementById('card-pi');
+  const note=document.getElementById('dl-pi-note');
+  if(disabled){card.classList.add('disabled');card.setAttribute('aria-disabled','true'); if(note) note.textContent='Fixed-rate is selected: Phone & Internet are disabled and not added separately.';}
+  else{card.classList.remove('disabled');card.removeAttribute('aria-disabled'); if(note) note.textContent='';}
+}
+
+/* ---------- Laundry ---------- */
+function calcLaundry(){
+  if(!document.getElementById('chk-laundry').checked){document.getElementById('out-laundry').textContent=fmt(0);return 0;}
+  const workOnly=toNum(document.getElementById('laundry-workonly').value);
+  const mixed=toNum(document.getElementById('laundry-mixed').value);
+  const val=workOnly*1 + mixed*0.5;
+  document.getElementById('out-laundry').textContent=fmt(val);
+  return val;
+}
+
+/* ---------- Assets ---------- */
+var FY={endYear:2025,start:new Date('2024-07-01T00:00:00'),end:new Date('2025-06-30T23:59:59')};
+function setFYEndYear(y){
+  y=parseInt(y||'2025',10); if(!isFinite(y)) y=2025;
+  FY.endYear=y; FY.start=new Date((y-1)+'-07-01T00:00:00'); FY.end=new Date(y+'-06-30T23:59:59');
+  var r=document.getElementById('fy-range'); if(r){ r.textContent = '1 Jul ' + (y-1) + ' – 30 Jun ' + y; }
+}
+function daysHeldInFY(dateStr){
+  if(!dateStr) return 0; const d=new Date(dateStr+'T00:00:00'); if(isNaN(d)) return 0;
+  const fyStart=FY.start; const fyEnd=FY.end;
+  if(d>fyEnd) return 0; const start=d<fyStart?fyStart:d;
+  const days=Math.floor((fyEnd-start)/(1000*60*60*24))+1; return Math.max(0,Math.min(366,days));
+}
+let assetRowSeq=0;
+function addAssetRow(id='assets'){
+  const tbody=document.getElementById('assets-tbody'); assetRowSeq+=1; const n=assetRowSeq;
+  const tr=el('tr',{'data-n':String(n),'data-prefix':id},[
+    el('td',{},el('input',{type:'text',id:`${id}-desc-${n}`,placeholder:'e.g. Laptop'})),
+    el('td',{},el('input',{type:'number',step:'0.01',min:'0',class:'right',id:`${id}-cost-${n}`,placeholder:'1200'})),
+    el('td',{},el('input',{type:'number',step:'1',min:'0',max:'100',class:'right',id:`${id}-pct-${n}`,placeholder:'80'})),
+    el('td',{},el('input',{type:'number',step:'0.1',min:'1',class:'right',id:`${id}-life-${n}`,placeholder:'3'})),
+    el('td',{},el('div',{},[
+      el('label',{'for':`${id}-mth-pc-${n}`},'Prime cost'),
+      el('input',{type:'radio',name:`${id}-method-${n}`,id:`${id}-mth-pc-${n}`,checked:true}),
+      el('label',{'for':`${id}-mth-dv-${n}`,style:'margin-left:8px'},'Diminishing'),
+      el('input',{type:'radio',name:`${id}-method-${n}`,id:`${id}-mth-dv-${n}`})
+    ])),
+    el('td',{},el('input',{type:'date',id:`${id}-date-${n}`})),
+    el('td',{},el('div',{class:'right',id:`${id}-ded-${n}`},'0.00')),
+    el('td',{},el('div',{class:'asset-actions'},[
+      el('button',{type:'button',class:'ghost',id:`${id}-rm-${n}`,title:'Remove this asset'},'Remove')
+    ]))
+  ]);
+  tbody.appendChild(tr);
+  document.getElementById(`${id}-rm-${n}`).addEventListener('click',()=>{tr.remove();recalc();});
+  return n;
+}
+function calcAssets(){
+  if(!document.getElementById('chk-assets').checked){document.getElementById('out-assets').textContent=fmt(0);return 0;}
+  const tbody=document.getElementById('assets-tbody'); let total=0;
+  for(let i=0;i<tbody.children.length;i++){
+    const tr=tbody.children[i]; const rowId=tr.getAttribute('data-prefix')||'assets'; const n=tr.getAttribute('data-n');
+    const cost=toNum(document.getElementById(`${rowId}-cost-${n}`)?.value);
+    const pct=Math.min(100,Math.max(0,toNum(document.getElementById(`${rowId}-pct-${n}`)?.value)));
+    const life=toNum(document.getElementById(`${rowId}-life-${n}`)?.value);
+    const date=document.getElementById(`${rowId}-date-${n}`)?.value||'';
+    let ded=0;
+    if(cost<=300 && cost>0){ded=cost*(pct/100);}
+    else if(cost>0 && life>0){
+      const days=daysHeldInFY(date);
+      if(days>0){const pc=document.getElementById(`${rowId}-mth-pc-${n}`)?.checked; ded=cost*(days/365)*(pc?(1/life):(2/life))*(pct/100);}
+    }
+    const cell=document.getElementById(`${rowId}-ded-${n}`); if(cell) cell.textContent=fmt(ded);
+    total+=ded;
+  }
+  document.getElementById('out-assets').textContent=fmt(total);
+  return total;
+}
+
+/* ---------- Simple multi-item tables ---------- */
+const simpleSeq={};
+function addSimpleRow(prefix){
+  const tbody=document.getElementById(prefix+'-tbody');
+  simpleSeq[prefix]=(simpleSeq[prefix]||0)+1; const n=simpleSeq[prefix];
+  const tr=el('tr',{'data-n':String(n)},[
+    el('td',{},el('input',{type:'text',id:`${prefix}-desc-${n}`,placeholder:'Description'})),
+    el('td',{},el('input',{type:'number',step:'0.01',min:'0',class:'right',id:`${prefix}-cost-${n}`,placeholder:'0.00'})),
+    el('td',{},el('div',{class:'asset-actions'},[
+      el('button',{type:'button',class:'ghost',id:`${prefix}-rm-${n}`,title:'Remove'},'Remove')
+    ]))
+  ]);
+  tbody.appendChild(tr);
+  document.getElementById(`${prefix}-rm-${n}`).addEventListener('click',()=>{tr.remove();recalc();});
+  return n;
+}
+function sumSimple(prefix, chkId, outId){
+  const on=document.getElementById(chkId).checked; let total=0;
+  const tbody=document.getElementById(prefix+'-tbody');
+  if(on && tbody){ for(let i=0;i<tbody.children.length;i++){ const n=tbody.children[i].getAttribute('data-n'); total+=toNum(document.getElementById(`${prefix}-cost-${n}`)?.value); } }
+  const out=document.getElementById(outId); if(out) out.textContent=fmt(total);
+  return total;
+}
+
+/* ---------- Car travel ---------- */
+function calcCar(){
+  if(!document.getElementById('chk-car').checked){
+    document.getElementById('out-car-cpk').textContent=fmt(0);
+    document.getElementById('out-car-log').textContent=fmt(0);
+    document.getElementById('out-car-total').textContent=fmt(0);
+    return 0;
+  }
+  const isCpk=document.getElementById('car-cpk').checked;
+  let cpk=0, log=0;
+  if(isCpk){
+    const km=Math.max(0,toNum(document.getElementById('car-km').value));
+    const rate=Math.max(0,toNum(document.getElementById('car-rate').value));
+    cpk=Math.min(km,5000)*rate;
+  }else{
+    const exp=Math.max(0,toNum(document.getElementById('car-exp').value));
+    const pct=Math.min(100,Math.max(0,toNum(document.getElementById('car-pct').value)));
+    log=exp*(pct/100);
+  }
+  document.getElementById('out-car-cpk').textContent=fmt(cpk);
+  document.getElementById('out-car-log').textContent=fmt(log);
+  const total=cpk+log;
+  document.getElementById('out-car-total').textContent=fmt(total);
+  return total;
+}
+
+/* ---------- Sidebar nav (with robust ticks) ---------- */
+function buildSectionsNav(){
+  const list=document.getElementById('sections-list'); if(!list) return;
+  list.innerHTML='';
+  document.querySelectorAll('#app section.card').forEach(sec=>{ if(sec.id==='card-overview'||sec.id==='card-intro'||sec.id==='card-tests'||sec.id==='card-edu-note') return;
+    const id=sec.id; if(!id) return; // skip sections without id
+    const title=(sec.querySelector('.header strong')?.textContent||id).trim();
+    const li=document.createElement('li'); const a=document.createElement('a');
+    a.href='#'+id;
+    const tick=document.createElement('span'); tick.className='sec-tick'; tick.id='sec-tick-'+id; tick.innerHTML='<span>✓</span>';
+    a.appendChild(tick); a.appendChild(document.createTextNode(title));
+    a.addEventListener('click',e=>{e.preventDefault();document.getElementById(id).scrollIntoView({behavior:'smooth',block:'start'});});
+    li.appendChild(a); list.appendChild(li);
+  });
+}
+function updateSectionTicks(included){
+  document.querySelectorAll('#app section.card').forEach(sec=>{
+    const id=sec.id; if(!id) return;
+    const tick=document.getElementById('sec-tick-'+id); if(!tick) return;
+    const amt=toNum(included[id]||0);
+    const chk=sec.querySelector('.header input[type="checkbox"]');
+    const isTicked=!!(chk && chk.checked); const isDisabled=!!(chk && chk.disabled);
+    tick.classList.remove('on','pending');
+    if(amt>0) tick.classList.add('on');
+    else if(isTicked && !isDisabled) tick.classList.add('pending');
+  });
+// Collapse/expand cards based on their header checkbox
+}
+
+// Dynamic examples for method-dependent cards
+function updateExamples(){
+  // Home office
+  var exHome = document.querySelector('#card-home .header .ex');
+  var fixed = document.getElementById('home-choice-fixed');
+  var actuals = document.getElementById('home-choice-actuals');
+  var piTicked = document.getElementById('chk-phone_internet') && document.getElementById('chk-phone_internet').checked;
+  if(exHome){
+    if(fixed && fixed.checked){
+      exHome.textContent = 'Example: 2 hrs per weeknight using fixed-rate 70¢/hr (PI is excluded).';
+    
+  // Overtime meals (allowance declared)
+  var exOT = document.querySelector('#card-overtime .header .ex');
+  var otChk = document.getElementById('chk-overtime');
+  var otDeclare = document.getElementById('ot-declare');
+  if(exOT){
+    if(otChk && otChk.checked){
+      exOT.textContent = 'Example: Enter what you actually spent when paid an overtime meal allowance (and include the allowance in income).';
+    }else{
+      exOT.textContent = 'Example: Claim only when an overtime meal allowance is paid—self-paid meals do not count.';
+    }
+  }
+  // WFH + PI note (greyed vs active)
+  var piNote = document.getElementById('dl-pi-note');
+  if(piNote){
+    if(fixed && fixed.checked){
+      piNote.textContent = 'Phone & internet are excluded when using the 70¢/hr fixed-rate method.';
+    }else if(actuals && actuals.checked && piTicked){
+      piNote.textContent = 'Phone & internet from this card are included inside Home office (Actuals) to avoid double counting.';
+    }else if(actuals && actuals.checked && !piTicked){
+      piNote.textContent = 'Enter your combined phone/internet amount either here or in Home office (Actuals).';
+    }else{
+      piNote.textContent = '';
+    }
+  }
+
+}else if(actuals && actuals.checked){
+      exHome.textContent = piTicked
+        ? 'Example: Power + phone/internet included from “Phone & Internet” (no double counting).'
+        : 'Example: Power $120 + manual phone/internet $60 entered below.';
+    }
+  }
+  // Phone & Internet
+  var exPI = document.querySelector('#card-pi .header .ex');
+  if(exPI){
+    if(fixed && fixed.checked){
+      exPI.textContent = 'Example: Disabled when WFH fixed-rate is selected (no separate claim).';
+    }else{
+      exPI.textContent = 'Example: Phone $80/mo @ 40% work; NBN $70/mo @ 30% work.';
+    }
+  }
+  // Car
+  var exCar = document.querySelector('#card-car .header .ex');
+  var cpk = document.getElementById('car-cpk');
+  var log = document.getElementById('car-logbook');
+  if(exCar){
+    if(cpk && cpk.checked){
+      exCar.textContent = 'Example: 1,200 km between sites @ $0.85/km (cap 5,000 work km).';
+    }else if(log && log.checked){
+      exCar.textContent = 'Example: Logbook 25% business use × annual car expenses.';
+    }
+  }
+}
+
+/* ---------- Evidence ---------- */
+function updateEvidence(){
+  const list=document.getElementById('evidence-list'); if(!list) return;
+  const items=[]; const push=t=>items.push(`<li>${t}</li>`); const checked=id=>document.getElementById(id)?.checked;
+
+  if(checked('chk-ahpra') && toNum(document.getElementById('ahpra-cost').value)>0) push('Registration (AHPRA/NMBA) — invoice/receipt.');
+  if(checked('chk-mdo') && toNum(document.getElementById('mdo-cost').value)>0) push('Professional indemnity premium — policy/statement.');
+  if(checked('chk-union') && toNum(document.getElementById('union-cost').value)>0) push('Union/association fee — receipt.');
+  if(checked('chk-books') && toNum(document.getElementById('books-cost').value)>0) push('Texts/journals — receipts; ensure work nexus.');
+  if(checked('chk-cpd') && toNum(document.getElementById('cpd-cost').value)>0) push('CPD/conferences/exams — registrations & agenda.');
+  if(checked('chk-parking') && toNum(document.getElementById('parking-cost').value)>0) push('Parking/tolls — receipts + brief purpose log (exclude commuting).');
+  if(checked('chk-laundry')){ const v=calcLaundry(); push(`Laundry — loads calc (work-only × $1, mixed × $0.50)${v>150?'; receipts needed because > $150.':'. Receipts not required ≤ $150.'}`); }
+  const homeOn=checked('chk-home'); const fixed=homeOn && document.getElementById('home-choice-fixed').checked; const actuals=homeOn && document.getElementById('home-choice-actuals').checked; const piOn=checked('chk-phone_internet');
+  if(fixed){ push('WFH Fixed-rate — hours log + one bill each for phone, internet, electricity.'); }
+  else if(actuals){ push('WFH Actuals — bills for electricity/gas/cleaning + apportionment.'); if(piOn) push('Phone & Internet — included in Actuals: bills + usage diary.'); else if(toNum(document.getElementById('home-actuals-intph').value)>0) push('Phone & Internet (manual in Actuals) — bills + usage diary.'); }
+  else if(piOn){ const pi=updatePhoneInternetUI(); if(pi.total>0) push('Phone & Internet — bills + 4-week usage diary.'); }
+  if(checked('chk-assets')) push('Tools & equipment — receipt, date, work-use%, depreciation record.');
+  const addSimpleEvidence=(prefix,label)=>{ const tbody=document.getElementById(prefix+'-tbody'); if(!tbody) return;
+    for(let i=0;i<tbody.children.length;i++){ const n=tbody.children[i].getAttribute('data-n'); const desc=(document.getElementById(`${prefix}-desc-${n}`)?.value||'Item').trim(); const cost=toNum(document.getElementById(`${prefix}-cost-${n}`)?.value); if(desc||cost>0) push(`${label} — ${desc}: receipt for $${fmt(cost)}.`);}
+  };
+  if(checked('chk-vax')) addSimpleEvidence('vax','Vax/medical check');
+  if(checked('chk-licence')) addSimpleEvidence('lic','Licence/certification');
+  if(checked('chk-software')) addSimpleEvidence('soft','Software/app');
+  if(checked('chk-stationery')) addSimpleEvidence('stat','Stationery item');
+  if(checked('chk-travel-noncar')) addSimpleEvidence('tnc','Transport between workplaces');
+  if(checked('chk-travel-overnight')){ addSimpleEvidence('ov','Overnight travel item'); push('Overnight travel — keep a travel diary if away 6+ nights.'); }
+  if(checked('chk-car')){ if(document.getElementById('car-cpk').checked) push('Car (cents-per-km) — record of work kms (≤5,000), trip details.'); else push('Car (logbook) — 12-week logbook + receipts + odometer records; apply business %.'); }
+  if(checked('chk-overtime')){ const dec=document.getElementById('ot-declare').checked; if(!dec) push('Overtime meal — cannot claim unless allowance is included in income.'); else push('Overtime meal — allowance declared; keep receipts or reasonable basis.'); }
+
+  list.innerHTML = items.length ? items.join('') : '<li class="muted">Tick a category to see what evidence to prepare.</li>';
+}
+
+/* ---------- Summary text ---------- */
+function updateTickedSummary(lines){
+  const pre=document.getElementById('ticked-summary');
+  pre.textContent=lines.length?lines.join('\n'):'No categories ticked yet.';
+}
+
+/* ---------- Recalc ---------- */
+function recalc(){
+  const pi=updatePhoneInternetUI();
+  const piChecked=document.getElementById('chk-phone_internet').checked;
+  const homeChecked=document.getElementById('chk-home').checked;
+  const useFixed=homeChecked && document.getElementById('home-choice-fixed').checked;
+  const useActuals=homeChecked && document.getElementById('home-choice-actuals').checked;
+
+  setPhoneInternetGrey(!!useFixed);
+
+  const wfhFixed=calcHomeFixed();
+  const wfhActuals=calcHomeActuals(useActuals && piChecked);
+
+  let piContribution=0;
+  if(!useFixed && !(useActuals && piChecked)){ piContribution=piChecked?pi.total:0; }
+
+  const vals=[]; const summary=[]; const included={};
+  const pushSimpleValue=(chkId,inputId,outId,label,cardId)=>{
+    const ok=document.getElementById(chkId).checked;
+    const v=ok?toNum(document.getElementById(inputId).value):0;
+    document.getElementById(outId).textContent=fmt(v);
+    vals.push(v); included[cardId]=v;
+    if(ok && v>0) summary.push(`${label}: $${fmt(v)}`);
+  };
+
+  pushSimpleValue('chk-ahpra','ahpra-cost','out-ahpra','Registration','card-ahpra');
+  pushSimpleValue('chk-mdo','mdo-cost','out-mdo','Indemnity premium','card-mdo');
+  pushSimpleValue('chk-union','union-cost','out-union','Union/association fees','card-union');
+  pushSimpleValue('chk-books','books-cost','out-books','Texts/Journals/Subscriptions','card-books');
+  pushSimpleValue('chk-cpd','cpd-cost','out-cpd','CPD/Conferences/Exams','card-cpd');
+  pushSimpleValue('chk-parking','parking-cost','out-parking','Parking/Tolls','card-parking');
+
+  const laundry=calcLaundry(); included['card-laundry']=document.getElementById('chk-laundry').checked?laundry:0; vals.push(laundry); if(included['card-laundry']>0) summary.push(`Laundry: $${fmt(laundry)}`);
+
+  included['card-home']=wfhFixed+wfhActuals;
+  try{document.getElementById('out-home-total').textContent=fmt(wfhFixed+wfhActuals);}catch(e){}
+  if(wfhFixed>0){ vals.push(wfhFixed); summary.push(`WFH Fixed-rate: $${fmt(wfhFixed)}`);} else vals.push(0);
+  if(wfhActuals>0){ vals.push(wfhActuals); summary.push(`Home actuals: $${fmt(wfhActuals)}`);} else vals.push(0);
+
+  included['card-pi']=piContribution;
+  if(piContribution>0){ vals.push(piContribution); summary.push(`Phone & Internet: $${fmt(piContribution)}`);} else vals.push(0);
+
+  const assets=calcAssets(); included['card-assets']=assets; vals.push(assets);
+  if(document.getElementById('chk-assets').checked && assets>0) summary.push(`Tools & equipment: $${fmt(assets)}`);
+
+  const vaxTot=sumSimple('vax','chk-vax','out-vax'); included['card-vax']=vaxTot; vals.push(vaxTot); if(document.getElementById('chk-vax').checked && vaxTot>0) summary.push(`Vaccinations/Checks: $${fmt(vaxTot)}`);
+  const licTot=sumSimple('lic','chk-licence','out-licence'); included['card-licence']=licTot; vals.push(licTot); if(document.getElementById('chk-licence').checked && licTot>0) summary.push(`Licences/Certifications: $${fmt(licTot)}`);
+  const softTot=sumSimple('soft','chk-software','out-software'); included['card-software']=softTot; vals.push(softTot); if(document.getElementById('chk-software').checked && softTot>0) summary.push(`Software/Apps: $${fmt(softTot)}`);
+  const statTot=sumSimple('stat','chk-stationery','out-stationery'); included['card-stationery']=statTot; vals.push(statTot); if(document.getElementById('chk-stationery').checked && statTot>0) summary.push(`Stationery: $${fmt(statTot)}`);
+
+  const carTot=calcCar(); included['card-car']=carTot; vals.push(carTot); if(document.getElementById('chk-car').checked && carTot>0) summary.push(`Car travel: $${fmt(carTot)}`);
+  const tncTot=sumSimple('tnc','chk-travel-noncar','out-tnc'); included['card-travel-noncar']=tncTot; vals.push(tncTot); if(document.getElementById('chk-travel-noncar').checked && tncTot>0) summary.push(`Transport (non-car): $${fmt(tncTot)}`);
+  const ovTot=sumSimple('ov','chk-travel-overnight','out-ov'); included['card-travel-overnight']=ovTot; vals.push(ovTot); if(document.getElementById('chk-travel-overnight').checked && ovTot>0) summary.push(`Overnight travel: $${fmt(ovTot)}`);
+
+  let ot=0; if(document.getElementById('chk-overtime').checked && document.getElementById('ot-declare').checked){ ot=toNum(document.getElementById('ot-spend').value); }
+  document.getElementById('out-ot').textContent=fmt(ot); included['card-overtime']=ot; vals.push(ot); if(ot>0) summary.push(`Overtime meals: $${fmt(ot)}`);
+
+  const total=vals.reduce((a,b)=>a+b,0);
+  document.getElementById('out-total').textContent=fmt(total);
+  updateTickedSummary(summary);
+  updateEvidence();
+  updateSectionTicks(included);
+}
+
+/* ---------- Reset ---------- */
+function resetAll(){
+  document.getElementById('app').querySelectorAll('input').forEach(inp=>{ const t=inp.type; if(t==='checkbox'||t==='radio') inp.checked=false; else inp.value=''; inp.removeAttribute('disabled'); });
+  document.getElementById('home-choice-fixed').checked=true;
+  document.getElementById('car-cpk').checked=true; document.getElementById('car-rate').value='0.85';
+  document.getElementById('assets-tbody').innerHTML=''; assetRowSeq=0; addAssetRow('assets');
+  ['vax','lic','soft','stat','tnc','ov'].forEach(p=>{ const tb=document.getElementById(p+'-tbody'); if(tb) tb.innerHTML=''; simpleSeq[p]=0; addSimpleRow(p); });
+  setPhoneInternetGrey(false);
+  recalc();
+  updateExamples();
+  applyCollapse();
+}
+
+/* ---------- Tests (full suite restored) ---------- */
+function log(m){const o=document.getElementById('test-output');o.textContent+=(o.textContent?'\n':'')+m}
+const pass=m=>log('✅ '+m), fail=m=>log('❌ '+m)
+function assertEq(name, actual, expected){ if (Math.abs(actual-expected)>1e-4) throw new Error(`${name}: expected ${expected}, got ${actual}`); }
+
+async function runTests(){
+  document.getElementById('test-output').textContent='';
+  try{
+    resetAll();
+    // PI
+    document.getElementById('chk-phone_internet').checked=true;
+    document.getElementById('phone-annual').value='1200';
+    document.getElementById('phone-pct').value='50';
+    document.getElementById('internet-monthly').value='80';
+    document.getElementById('internet-months').value='12';
+    document.getElementById('internet-pct').value='25';
+    let pi=updatePhoneInternetUI(); assertEq('PI total',pi.total,840); pass('PI monthly→annual OK');
+
+    // Fixed excludes PI and greys PI + tick off
+    document.getElementById('chk-home').checked=true;
+    document.getElementById('home-choice-fixed').checked=true;
+    document.getElementById('home-hours').value='100';
+    recalc();
+    assertEq('WFH fixed 100hrs', Number(document.getElementById('out-home-fixed').textContent), 70);
+    if(document.getElementById('sec-tick-card-pi').classList.contains('on')) throw new Error('PI tick should be OFF under Fixed');
+    pass('WFH Fixed excludes PI and tick off');
+
+    // Actuals includes PI and tick rules
+    document.getElementById('home-choice-fixed').checked=false;
+    document.getElementById('home-choice-actuals').checked=true;
+    document.getElementById('home-actuals-power').value='100';
+    recalc();
+    assertEq('Actuals includes PI', Number(document.getElementById('out-home-actuals').textContent), 100+840);
+    if(!document.getElementById('sec-tick-card-home').classList.contains('on')) throw new Error('Home tick should be ON under Actuals');
+    if(document.getElementById('sec-tick-card-pi').classList.contains('on')) throw new Error('PI tick should be OFF when included via Actuals');
+    pass('WFH Actuals tick rules OK');
+
+    // Software multi-item sum
+    document.getElementById('chk-software').checked=true;
+    addSimpleRow('soft'); addSimpleRow('soft');
+    document.getElementById('soft-desc-1').value='UpToDate';
+    document.getElementById('soft-cost-1').value='220';
+    document.getElementById('soft-desc-2').value='Calc app';
+    document.getElementById('soft-cost-2').value='15.5';
+    recalc();
+    assertEq('Software sum', toNum(document.getElementById('out-software').textContent), 235.5);
+    pass('Software multi-item sum OK');
+
+    // Assets add/remove
+    document.getElementById('chk-assets').checked=true;
+    addAssetRow('assets');
+    document.getElementById('assets-cost-1').value='1200'; document.getElementById('assets-pct-1').value='50'; document.getElementById('assets-life-1').value='3'; document.getElementById('assets-date-1').value='2024-07-01'; document.getElementById('assets-mth-pc-1').checked=true;
+    document.getElementById('assets-cost-2').value='200'; document.getElementById('assets-pct-2').value='100'; document.getElementById('assets-life-2').value='3'; document.getElementById('assets-date-2').value='2025-01-01';
+    let total=calcAssets(); const daysFY=daysHeldInFY('2024-07-01');
+    const expectedBefore=1200*(daysFY/365)*(1/3)*0.5 + 200*1;
+    assertEq('Assets before remove', Number(total.toFixed(2)), Number(expectedBefore.toFixed(2)));
+    document.getElementById('assets-rm-2').click(); total=calcAssets();
+    const expectedAfter=1200*(daysFY/365)*(1/3)*0.5;
+    assertEq('Assets after remove', Number(total.toFixed(2)), Number(expectedAfter.toFixed(2)));
+    pass('Assets calc OK');
+
+    // Car cents-per-km
+    document.getElementById('chk-car').checked=true;
+    document.getElementById('car-cpk').checked=true;
+    document.getElementById('car-km').value='1000';
+    document.getElementById('car-rate').value='0.85';
+    recalc();
+    assertEq('Car cents-per-km', Number(document.getElementById('out-car-total').textContent), 850);
+    pass('Car cents-per-km OK');
+
+    // Car logbook
+    document.getElementById('car-logbook').checked=true;
+    document.getElementById('car-exp').value='4000';
+    document.getElementById('car-pct').value='25';
+    recalc();
+    assertEq('Car logbook', Number(document.getElementById('out-car-total').textContent), 1000);
+    pass('Car logbook OK');
+
+    // Non-car transport
+    document.getElementById('chk-travel-noncar').checked=true;
+    addSimpleRow('tnc'); addSimpleRow('tnc');
+    document.getElementById('tnc-cost-1').value='20'; document.getElementById('tnc-cost-2').value='30';
+    recalc();
+    assertEq('Non-car transport sum', Number(document.getElementById('out-tnc').textContent), 50);
+    pass('Transport (non-car) OK');
+
+    // Overnight travel
+    document.getElementById('chk-travel-overnight').checked=true;
+    addSimpleRow('ov'); addSimpleRow('ov');
+    document.getElementById('ov-cost-1').value='100'; document.getElementById('ov-cost-2').value='40';
+    recalc();
+    assertEq('Overnight travel sum', Number(document.getElementById('out-ov').textContent), 140);
+    pass('Overnight travel OK');
+
+    // Overtime meal declaration logic
+    document.getElementById('chk-overtime').checked=true; document.getElementById('ot-spend').value='30';
+    recalc(); assertEq('Overtime no declare', Number(document.getElementById('out-ot').textContent), 0);
+    document.getElementById('ot-declare').checked=true; recalc();
+    assertEq('Overtime declared', Number(document.getElementById('out-ot').textContent), 30);
+    pass('Overtime meals OK');
+
+    // Reset
+    document.getElementById('btn-reset').click();
+    if(Number(document.getElementById('out-total').textContent)!==0) throw new Error('Reset did not clear total');
+    pass('All tests passed');
+  }catch(e){ fail(e.message||String(e)); throw e; }
+}
+
+/* ---------- wire ---------- */
+function buildSections(){ addAssetRow('assets'); ['vax','lic','soft','stat','tnc','ov'].forEach(p=> addSimpleRow(p)); }
+
+// Global: collapse/expand cards based on checkbox state
+function applyCollapse(){
+  try{
+    document.querySelectorAll('#app section.card').forEach(function(sec){
+      var id = sec.id || '';
+      if(id==='card-overview' || id==='card-tests' || id==='card-intro' || id==='card-edu-note') return;
+      var chk = sec.querySelector('.header input[type="checkbox"]');
+      var expand = chk ? chk.checked : true;
+      if(expand) sec.classList.remove('collapsed'); else sec.classList.add('collapsed');
+    });
+  }catch(e){ /* no-op */ }
+}
+
+function openTestsModal(){
+  try{
+    runTests(); // this writes into #test-output (hidden card)
+    var src = document.getElementById('test-output');
+    var dst = document.getElementById('modal-tests-output');
+    if(dst && src){ dst.textContent = src.textContent; }
+    var m = document.getElementById('modal-tests'); if(m) m.classList.remove('hidden');
+  }catch(e){ console.error(e); }
+}
+function closeTestsModal(){
+  var m = document.getElementById('modal-tests'); if(m) m.classList.add('hidden');
+}
+document.addEventListener('DOMContentLoaded', function(){
+  var btnClose = document.getElementById('modal-tests-close');
+  if(btnClose) btnClose.addEventListener('click', closeTestsModal);
+  document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeTestsModal(); });
+  document.getElementById('modal-tests')?.addEventListener('click', function(ev){ if(ev.target===this) closeTestsModal(); });
+});
+
+// Build a printable summary & evidence checklist
+function buildPrintView(){
+  var area = document.getElementById('print-area');
+  if(!area) return;
+  area.innerHTML = '';
+  var now = new Date();
+  var when = now.toLocaleDateString(undefined, {year:'numeric',month:'short',day:'numeric'}) + ' ' +
+             now.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
+  // Try to get FY display text if present
+  var fy = '';
+  var fyNode = document.querySelector('[data-fy-range]') || document.querySelector('.fy-range') || null;
+  if(fyNode) fy = fyNode.textContent.trim();
+  // Pull ticked summary lines
+  var linesText = (document.getElementById('ticked-summary')?.textContent || '').trim();
+  var lines = linesText.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  // Build summary table rows
+  var rows = '';
+  lines.forEach(function(line){
+    var idx = line.lastIndexOf(':');
+    if(idx>-1){
+      var label = line.slice(0, idx).trim();
+      var amt = line.slice(idx+1).trim();
+      rows += '<tr><td>'+escapeHtml(label)+'</td><td class="amount">'+escapeHtml(amt)+'</td></tr>';
+    }
+  });
+  var total = document.getElementById('out-total')?.textContent || '';
+  // Evidence list items
+  var evItems = Array.from(document.querySelectorAll('#evidence-list li')).map(li=>li.textContent.trim()).filter(Boolean);
+  var evRows = evItems.map(function(t){ return '<tr><td class="checkbox"><span class="box"></span></td><td>'+escapeHtml(t)+'</td></tr>'; }).join('');
+  // Compose HTML
+  
+  var title = 'Work‑related deductions — Summary';
+  var brand = 'Generated with Clinician Deductions — Smart Calculator';
+  
+  var displayTotal = total || '';
+  var header = ''
+    + '<div class="mast">'
+    +   '<div class="total-pill">Total deductions: '+ escapeHtml(displayTotal) +'</div>'
+    +   '<h1>'+ title +'</h1>'
+    +   '<div class="meta">'+ (fy ? ('Tax year: '+escapeHtml(fy)+' · ') : '') + 'Generated: '+escapeHtml(when)+'</div>'
+    + '</div>';
+
+
+  var body = ''
+    + '<div class="section">'
+    + '<h2>Breakdown by category</h2>'
+    + '<table><thead><tr><th>Category</th><th class="amount">Amount (AUD)</th></tr></thead><tbody>'
+    + rows
+    + '</tbody><tfoot><tr><td>Total deductions</td><td class="amount">'+escapeHtml(total)+'</td></tr></tfoot></table>'
+    + '<h2>Evidence checklist</h2>'
+    + '<table><thead><tr><th class="checkbox"></th><th>Document / record required</th></tr></thead><tbody>'
+    + evRows
+    + '</tbody></table>'
+    + '</div>';
+
+  var footer = '<div id="print-footer"><div class="brand">'+brand+'</div><div class="pages"></div></div>';
+
+  area.innerHTML = header + body + footer;
+
+}
+function exportPDF(){
+  buildPrintView();
+  // Let layout paint before printing
+  setTimeout(function(){ window.print(); }, 50);
+}
+function escapeHtml(s){
+  return s.replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]||c;});
+}
+function wire(){
+
+  // Improve mobile keypad for numeric fields
+  (function(){
+    document.querySelectorAll('#app input[type=number]').forEach(function(i){
+      if(!i.hasAttribute('inputmode')) i.setAttribute('inputmode','decimal');
+    });
+  })();
+
+  buildSectionsNav(); buildSections();
+  // Buttons
+  document.getElementById('btn-add-asset').addEventListener('click',()=>{addAssetRow('assets');recalc();});
+  document.getElementById('btn-add-vax').addEventListener('click',()=>{addSimpleRow('vax');recalc();});
+  document.getElementById('btn-add-lic').addEventListener('click',()=>{addSimpleRow('lic');recalc();});
+  document.getElementById('btn-add-soft').addEventListener('click',()=>{addSimpleRow('soft');recalc();});
+  document.getElementById('btn-add-stat').addEventListener('click',()=>{addSimpleRow('stat');recalc();});
+  document.getElementById('btn-add-tnc').addEventListener('click',()=>{addSimpleRow('tnc');recalc();});
+  document.getElementById('btn-add-ov').addEventListener('click',()=>{addSimpleRow('ov');recalc();});
+  document.getElementById('btn-test').addEventListener('click',openTestsModal);
+  document.getElementById('btn-export-pdf').addEventListener('click',exportPDF);
+  // Intro close handling + persistence
+  (function(){
+    var intro = document.getElementById('card-intro');
+    try{
+      if(localStorage.getItem('introHidden')==='1' && intro){ intro.classList.add('hidden'); }
+    }catch(e){}
+    var btn = document.getElementById('intro-close');
+    if(btn){
+      btn.addEventListener('click', function(){
+        var intro = document.getElementById('card-intro');
+        if(intro){ intro.classList.add('hidden'); try{ }catch(e){} }
+      });
+    }
+  })();
+
+  var fyInput=document.getElementById('fy-end-year'); if(fyInput){ fyInput.addEventListener('input', function(){ setFYEndYear(this.value); recalc(); }); setFYEndYear(fyInput.value); }
+  document.getElementById('btn-reset').addEventListener('click',resetAll);
+  // --- UI tweak: single-checkbox overtime + clearer wording ---
+  (function(){
+    var otRow = document.getElementById('ot-declare');
+    if (otRow && otRow.closest) {
+      var row = otRow.closest('.field');
+      if (row) row.style.display = 'none'; // hide second checkbox row, keep element/ID for tests
+    }
+    var chkOT = document.getElementById('chk-overtime');
+    var otDeclare = document.getElementById('ot-declare');
+    var otSpend = document.getElementById('ot-spend');
+    var otSub = document.querySelector('#card-overtime .header .hfill .sub');
+    if (otSub) otSub.textContent = 'Only tick if you received an overtime meal allowance paid by your employer, and you will include the allowance in your tax return. Self-paid meals do not count.';
+    function syncOT(){ if (otDeclare) otDeclare.checked = !!(chkOT && chkOT.checked); }
+    if (chkOT) chkOT.addEventListener('change', function(){ syncOT(); });
+    if (otSpend) otSpend.addEventListener('input', function(){
+      var v = parseFloat(otSpend.value||'0'); if (!isFinite(v)) v = 0;
+      if (v>0 && chkOT && !chkOT.checked){ chkOT.checked = true; syncOT(); }
+    });
+
+    // keep initial sync on load
+    syncOT();
+  })();
+
+  // --- Auto-tick categories when user starts entering data ---
+  function __autoTickHandler(ev){
+    var t = ev.target;
+    if (!t) return;
+    if (t.closest && t.closest('#card-tests')) return; // ignore tests card
+    var card = t.closest ? t.closest('section.card') : null;
+    if (!card) return;
+    var chk = card.querySelector('.header input[type="checkbox"]');
+    if (!chk || t===chk || chk.checked || chk.disabled) return;
+
+    var should = false;
+    if (t.tagName==='INPUT'){
+      var type = (t.getAttribute('type')||'').toLowerCase();
+      if (type==='number' || type==='range') should = (parseFloat(t.value||'0')||0) > 0;
+      else if (type==='text' || type==='date') should = (t.value||'').trim() !== '';
+      else if (type==='checkbox' || type==='radio') should = true;
+    } else if (t.tagName==='TEXTAREA' || t.tagName==='SELECT'){
+      should = true;
+    }
+    if (should){
+      chk.checked = true;
+      if (chk.id==='chk-overtime'){ var od = document.getElementById('ot-declare'); if (od) od.checked = true; }
+    }
+  }
+  // Capture-phase so it runs before the recalc() bubble listeners
+  document.getElementById('app').addEventListener('input', __autoTickHandler, true);
+
+  document.getElementById('app').addEventListener('input',recalc);
+  document.getElementById('app').addEventListener('input',updateExamples);
+  document.getElementById('app').addEventListener('input',applyCollapse,true);
+  document.getElementById('app').addEventListener('change',recalc);
+  document.getElementById('app').addEventListener('change',updateExamples);
+  document.getElementById('app').addEventListener('change',applyCollapse);
+  recalc();
+}
+document.addEventListener('DOMContentLoaded', wire);
+</script>
+<div aria-labelledby="modal-tests-title" aria-modal="true" class="modal hidden" id="modal-tests" role="dialog">
+<div class="modal-card">
+<div class="modal-header">
+<strong id="modal-tests-title">Self-tests</strong>
+<button aria-label="Close" id="modal-tests-close" type="button">×</button>
+</div>
+<div class="modal-body">
+<pre class="lines small" id="modal-tests-output"></pre>
+</div>
+</div>
+</div>
+
+  <div id="print-area" aria-hidden="true"></div>
+
+</body>
+</html>
