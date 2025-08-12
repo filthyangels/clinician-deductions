@@ -1,7 +1,3 @@
-Here’s an updated **README.md** with a stronger disclaimer (not financial advice, not official ATO, no liability; side project/hobby).
-
----
-
 # Clinician Deductions — Single-file HTML App
 
 A lightweight, single-page tool for Australian **junior doctors and nurses** to estimate **work-related deductions** (PAYG, resident taxpayers). Built to be **fast**, **offline-friendly**, and **ATO-aware**. No build step, no dependencies.
